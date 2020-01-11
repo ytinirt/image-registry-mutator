@@ -1,1 +1,1 @@
-Automatically change pod's container images based on Kubernetes MutatingAdmissionWebhook.
+Automatically change container's image registry of pods base on Kubernetes MutatingAdmissionWebhook.
