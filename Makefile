@@ -27,3 +27,6 @@ docker-image: image/image-registry-mutator
 .PHONY: push-image
 push-image: docker-image
 	sudo docker push $(IMAGE)
+
+clean:
+	@git clean -xdf .
