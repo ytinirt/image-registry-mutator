@@ -16,6 +16,7 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        runAsUser: 123456
       containers:
       - name: server
         image: ytinirt/image-mutator:latest
@@ -43,7 +44,7 @@ spec:
     - port: 443
       targetPort: api
 ---
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: image-mutator

@@ -43,7 +43,8 @@ kubectl -n ${DEPLOY_NAMESPACE} create secret tls image-mutator-tls \
 ca_pem_b64="$(openssl base64 -A <"${keydir}/ca.crt")"
 sed -e 's@${CA_PEM_B64}@'"$ca_pem_b64"'@g' <"${basedir}/deployment.yaml.template" \
     | sed -e 's@${DEPLOY_NAMESPACE}@'"$DEPLOY_NAMESPACE"'@g' \
-    | kubectl -n ${DEPLOY_NAMESPACE} create -f -
+    >"${basedir}/deployment.yaml"
+kubectl -n ${DEPLOY_NAMESPACE} create -f "${basedir}/deployment.yaml"
 
 # Delete the key directory to prevent abuse (DO NOT USE THESE KEYS ANYWHERE ELSE).
 rm -rf "$keydir"
