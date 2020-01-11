@@ -1,0 +1,1 @@
+Automatically change pod's container images based on Kubernetes MutatingAdmissionWebhook.
