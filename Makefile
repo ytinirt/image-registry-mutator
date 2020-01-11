@@ -15,13 +15,13 @@
 
 .DEFAULT_GOAL := docker-image
 
-IMAGE ?= ytinirt/image-mutator:latest
+IMAGE ?= ytinirt/image-registry-mutator:latest
 
-image/image-mutator: $(shell find . -name '*.go')
-	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o $@ ./cmd/image-mutator
+image/image-registry-mutator: $(shell find . -name '*.go')
+	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o $@ ./cmd/image-registry-mutator
 
 .PHONY: docker-image
-docker-image: image/image-mutator
+docker-image: image/image-registry-mutator
 	sudo docker build -t $(IMAGE) image/
 
 .PHONY: push-image

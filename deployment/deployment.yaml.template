@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: image-mutator
+  name: image-registry-mutator
   labels:
-    app: image-mutator
+    app: image-registry-mutator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: image-mutator
+      app: image-registry-mutator
   template:
     metadata:
       labels:
-        app: image-mutator
+        app: image-registry-mutator
     spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 123456
       containers:
       - name: server
-        image: ytinirt/image-mutator:latest
+        image: ytinirt/image-registry-mutator:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8443
@@ -31,15 +31,15 @@ spec:
       volumes:
       - name: tls-certs
         secret:
-          secretName: image-mutator-tls
+          secretName: image-registry-mutator-tls
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: image-mutator
+  name: image-registry-mutator
 spec:
   selector:
-    app: image-mutator
+    app: image-registry-mutator
   ports:
     - port: 443
       targetPort: api
@@ -47,12 +47,12 @@ spec:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: image-mutator
+  name: image-registry-mutator
 webhooks:
-  - name: image-mutator.${DEPLOY_NAMESPACE}.svc
+  - name: image-registry-mutator.${DEPLOY_NAMESPACE}.svc
     clientConfig:
       service:
-        name: image-mutator
+        name: image-registry-mutator
         namespace: ${DEPLOY_NAMESPACE}
         path: "/mutate"
       caBundle: ${CA_PEM_B64}

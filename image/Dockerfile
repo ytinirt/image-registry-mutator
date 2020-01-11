@@ -1,4 +1,4 @@
 FROM scratch
 
-COPY ./image-mutator /
-ENTRYPOINT ["/image-mutator"]
+COPY ./image-registry-mutator /
+ENTRYPOINT ["/image-registry-mutator"]

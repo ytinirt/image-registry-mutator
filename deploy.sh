@@ -17,7 +17,7 @@
 
 # deploy.sh
 #
-# Deploy image-mutator in an active cluster.
+# Deploy image-registry-mutator in an active cluster.
 
 DEPLOY_NAMESPACE=kube-system
 
@@ -34,9 +34,9 @@ sed -e 's@${DEPLOY_NAMESPACE}@'"$DEPLOY_NAMESPACE"'@g' <"${basedir}/generate-key
 sh "${basedir}/generate-keys.sh" "$keydir"
 
 # Create the TLS secret for the generated keys.
-kubectl -n ${DEPLOY_NAMESPACE} create secret tls image-mutator-tls \
-    --cert "${keydir}/image-mutator-tls.crt" \
-    --key "${keydir}/image-mutator-tls.key"
+kubectl -n ${DEPLOY_NAMESPACE} create secret tls image-registry-mutator-tls \
+    --cert "${keydir}/image-registry-mutator-tls.crt" \
+    --key "${keydir}/image-registry-mutator-tls.key"
 
 # Read the PEM-encoded CA certificate, base64 encode it, and replace the `${CA_PEM_B64}` placeholder in the YAML
 # template with it. Then, create the Kubernetes resources.
@@ -49,4 +49,4 @@ kubectl -n ${DEPLOY_NAMESPACE} create -f "${basedir}/deployment.yaml"
 # Delete the key directory to prevent abuse (DO NOT USE THESE KEYS ANYWHERE ELSE).
 rm -rf "$keydir"
 
-echo "The image mutator has been deployed and configured!"
+echo "The image registry mutator has been deployed and configured!"
