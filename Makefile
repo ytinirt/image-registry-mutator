@@ -22,8 +22,8 @@ image/image-mutator: $(shell find . -name '*.go')
 
 .PHONY: docker-image
 docker-image: image/image-mutator
-	docker build -t $(IMAGE) image/
+	sudo docker build -t $(IMAGE) image/
 
 .PHONY: push-image
 push-image: docker-image
-	docker push $(IMAGE)
+	sudo docker push $(IMAGE)
