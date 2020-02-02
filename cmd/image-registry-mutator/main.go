@@ -25,6 +25,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -36,6 +37,39 @@ const (
 var (
 	podResource = metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
 )
+
+func needMutating(pod *corev1.Pod) bool {
+	ret := false
+
+	for _, c := range pod.Spec.Containers {
+		if !strings.Contains(c.Image, ":") {
+			log.Printf("container[%s]'s image[%s] mutating to tag latest", c.Name, c.Image)
+			ret = true
+		} else {
+			log.Printf("container[%s]'s image[%s]", c.Name, c.Image)
+		}
+	}
+
+	return ret
+}
+
+func generatePatch(pod *corev1.Pod) ([]patchOperation, error) {
+	var patches []patchOperation
+
+	for i, c := range pod.Spec.Containers {
+		if strings.Contains(c.Image, ":") {
+			continue
+		}
+
+		patches = append(patches, patchOperation{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/spec/containers/%d/image", i),
+			Value: fmt.Sprintf("%s:latest", c.Image),
+		})
+	}
+
+	return patches, nil
+}
 
 func mutateImageRegistry(req *v1beta1.AdmissionRequest) ([]patchOperation, error) {
 	// This handler should only get called on Pod objects as per the MutatingWebhookConfiguration in the YAML file.
@@ -53,10 +87,17 @@ func mutateImageRegistry(req *v1beta1.AdmissionRequest) ([]patchOperation, error
 		return nil, fmt.Errorf("could not deserialize pod object: %v", err)
 	}
 
-	for i, c := range pod.Spec.Containers {
-		log.Printf("[%d] image name: %s\n", i, c.Image)
+	if !needMutating(&pod) {
+		log.Printf("pod %s/%s do not need mutating", pod.Namespace, pod.Name)
+		return nil, nil
 	}
-	return nil, nil
+
+	patches, err := generatePatch(&pod)
+	if err != nil {
+		return nil, fmt.Errorf("generate patch failed")
+	}
+	log.Printf("patches: %v", patches)
+	return patches, nil
 }
 
 func main() {
