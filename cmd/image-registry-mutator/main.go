@@ -18,53 +18,86 @@ limitations under the License.
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 )
 
 const (
-	tlsDir      = `/run/secrets/tls`
-	tlsCertFile = `tls.crt`
-	tlsKeyFile  = `tls.key`
+	tlsDir      	= `/run/secrets/tls`
+	tlsCertFile 	= `tls.crt`
+	tlsKeyFile  	= `tls.key`
+
+	envKeyBypassMe	= `IRM_BYPASS_ME`	// If present, bypass image registry mutator's pod itself
+	envKeyBypassNS	= `IRM_BYPASS_NS`	// If present, bypass all namespaces, CSV formatted
+	envKeyRegistry	= `IRM_REGISTRY`	// If present, replace registry with it, otherwise do nothing
 )
 
 var (
 	podResource = metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
+
+	bypassNS = map[string]string {}
+	bypassMe = false
+	registry = ""				// not end with '/'
 )
 
-func needMutating(pod *corev1.Pod) bool {
-	ret := false
+func needMutating(pod *corev1.Pod) (ret bool) {
+	ret = false
+
+	if registry == "" {
+		log.Printf("registry not defined, give up mutating")
+		return
+	}
+
+	if _, bypass := bypassNS[pod.Namespace]; bypass {
+		log.Printf("bypass namespace %s", pod.Namespace)
+		return
+	}
+
+	var name string
+	if pod.Name == "" {
+		name = pod.GenerateName
+	} else {
+		name = pod.Name
+	}
+
+	if bypassMe && pod.Namespace == "kube-system" && strings.HasPrefix(name, "image-registry-mutator-") {
+		// FIXME: hard-code
+		log.Printf("bypass myself kube-system/image-registry-mutator-*")
+		return
+	}
 
 	for _, c := range pod.Spec.Containers {
-		if !strings.Contains(c.Image, ":") {
-			log.Printf("container[%s]'s image[%s] mutating to tag latest", c.Name, c.Image)
+		if !strings.HasPrefix(c.Image, fmt.Sprintf("%s/", registry)) {
+			log.Printf("container[%s]'s image[%s] not from registry %s, mutating it", c.Name, c.Image, registry)
 			ret = true
 		} else {
-			log.Printf("container[%s]'s image[%s]", c.Name, c.Image)
+			log.Printf("container[%s]'s image[%s], do not need mutating", c.Name, c.Image)
 		}
 	}
 
-	return ret
+	return
 }
 
 func generatePatch(pod *corev1.Pod) ([]patchOperation, error) {
 	var patches []patchOperation
 
 	for i, c := range pod.Spec.Containers {
-		if strings.Contains(c.Image, ":") {
+		if strings.HasPrefix(c.Image, fmt.Sprintf("%s/", registry)) {
 			continue
 		}
 
 		patches = append(patches, patchOperation{
 			Op:    "replace",
 			Path:  fmt.Sprintf("/spec/containers/%d/image", i),
-			Value: fmt.Sprintf("%s:latest", c.Image),
+			Value: fmt.Sprintf("%s/%s", registry, c.Image),
 		})
 	}
 
@@ -87,8 +120,19 @@ func mutateImageRegistry(req *v1beta1.AdmissionRequest) ([]patchOperation, error
 		return nil, fmt.Errorf("could not deserialize pod object: %v", err)
 	}
 
+	if pod.Namespace == "" {
+		pod.Namespace = req.Namespace
+		log.Printf("populate pod's namespace with admission request's namespace %s", req.Namespace)
+	}
+
+	var name string
+	if pod.Name == "" {
+		name = pod.GenerateName
+	} else {
+		name = pod.Name
+	}
 	if !needMutating(&pod) {
-		log.Printf("pod %s/%s do not need mutating", pod.Namespace, pod.Name)
+		log.Printf("pod %s/%s do not need mutating", pod.Namespace, name)
 		return nil, nil
 	}
 
@@ -100,9 +144,55 @@ func mutateImageRegistry(req *v1beta1.AdmissionRequest) ([]patchOperation, error
 	return patches, nil
 }
 
+func initConfig() {
+	var val string
+
+	// bypassMe
+	if _, present := os.LookupEnv(envKeyBypassMe); present {
+		log.Printf("Env %s is present, bypass me", envKeyBypassMe)
+		bypassMe = true
+	} else {
+		log.Printf("Missing env %s", envKeyBypassMe)
+	}
+
+	// registry
+	val = os.Getenv(envKeyRegistry)
+	if val != "" {
+		registry = strings.TrimRight(val, "/")
+		log.Printf("Env %s is setted, value %s, registry %s", envKeyRegistry, val, registry)
+	} else {
+		log.Printf("Missing env %s or value is empty", envKeyRegistry)
+	}
+
+	// bypassNS
+	val = os.Getenv(envKeyBypassNS)
+	if val != "" {
+		r := csv.NewReader(strings.NewReader(val))
+		records, err := r.ReadAll()
+		if err == nil {
+			var flatRecords []string
+			for _, record := range records {
+				flatRecords = append(flatRecords, record...)
+			}
+			log.Printf("Env %s is setted, value %s, CSV parsed %v", envKeyBypassNS, val, flatRecords)
+			for _, ns := range flatRecords {
+				bypassNS[ns] = ""
+			}
+		} else {
+			log.Printf("Env %s is setted, value %s, CSV parse failed with error: %v", envKeyBypassNS, val, err)
+		}
+	} else {
+		log.Printf("Missing env %s or value is empty", envKeyBypassNS)
+	}
+
+	return
+}
+
 func main() {
 	certPath := filepath.Join(tlsDir, tlsCertFile)
 	keyPath := filepath.Join(tlsDir, tlsKeyFile)
+
+	initConfig()
 
 	mux := http.NewServeMux()
 	mux.Handle("/mutate", admitFuncHandler(mutateImageRegistry))

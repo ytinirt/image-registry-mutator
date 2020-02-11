@@ -21,6 +21,13 @@ spec:
       - name: server
         image: ytinirt/image-registry-mutator:latest
         imagePullPolicy: Always
+        #env:
+        #- name: IRM_BYPASS_ME
+        #  value: "If present, bypass image registry mutator's pod itself, no matter what value it is"
+        #- name: IRM_BYPASS_NS
+        #  value: "Bypass pod from those namespaces, CSV encoding to support multiple namespaces"
+        #- name: IRM_REGISTRY
+        #  value: "If present, replace registry with it, otherwise do nothing"
         ports:
         - containerPort: 8443
           name: api
