@@ -19,7 +19,7 @@
 #
 # Deploy image-registry-mutator in an active cluster.
 
-DEPLOY_NAMESPACE=kube-system
+DEPLOY_NAMESPACE=${1:-kube-system}
 
 set -euo pipefail
 

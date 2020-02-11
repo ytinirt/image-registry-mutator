@@ -35,6 +35,7 @@ const (
 	tlsCertFile 	= `tls.crt`
 	tlsKeyFile  	= `tls.key`
 
+	envKeyMyNS      = `IRM_MY_NS`
 	envKeyBypassMe	= `IRM_BYPASS_ME`	// If present, bypass image registry mutator's pod itself
 	envKeyBypassNS	= `IRM_BYPASS_NS`	// If present, bypass all namespaces, CSV formatted
 	envKeyRegistry	= `IRM_REGISTRY`	// If present, replace registry with it, otherwise do nothing
@@ -43,6 +44,7 @@ const (
 var (
 	podResource = metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
 
+	myNS	 = ""
 	bypassNS = map[string]string {}
 	bypassMe = false
 	registry = ""				// not end with '/'
@@ -68,9 +70,8 @@ func needMutating(pod *corev1.Pod) (ret bool) {
 		name = pod.Name
 	}
 
-	if bypassMe && pod.Namespace == "kube-system" && strings.HasPrefix(name, "image-registry-mutator-") {
-		// FIXME: hard-code
-		log.Printf("bypass myself kube-system/image-registry-mutator-*")
+	if bypassMe && pod.Namespace == myNS && strings.HasPrefix(name, "image-registry-mutator-") {
+		log.Printf("bypass myself %s/image-registry-mutator-*", myNS)
 		return
 	}
 
@@ -146,6 +147,15 @@ func mutateImageRegistry(req *v1beta1.AdmissionRequest) ([]patchOperation, error
 
 func initConfig() {
 	var val string
+
+	// myNS
+	val = os.Getenv(envKeyMyNS)
+	if val != "" {
+		myNS = val
+		log.Printf("Env %s is setted, value %s", envKeyMyNS, myNS)
+	} else {
+		log.Fatalf("Missing env %s or value is empty", envKeyMyNS)
+	}
 
 	// bypassMe
 	if _, present := os.LookupEnv(envKeyBypassMe); present {
