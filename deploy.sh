@@ -33,6 +33,11 @@ sed -e 's@${DEPLOY_NAMESPACE}@'"$DEPLOY_NAMESPACE"'@g' <"${basedir}/generate-key
     >"${basedir}/generate-keys.sh"
 sh "${basedir}/generate-keys.sh" "$keydir"
 
+# Prepare namespace
+set +e
+kubectl create ns ${DEPLOY_NAMESPACE}
+set -e
+
 # Create the TLS secret for the generated keys.
 kubectl -n ${DEPLOY_NAMESPACE} create secret tls image-registry-mutator-tls \
     --cert "${keydir}/image-registry-mutator-tls.crt" \
