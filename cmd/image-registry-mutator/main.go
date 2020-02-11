@@ -61,7 +61,14 @@ func needMutating(pod *corev1.Pod) (ret bool) {
 		return
 	}
 
-	if bypassMe && pod.Namespace == "kube-system" && strings.HasPrefix(pod.Name, "image-registry-mutator-") {
+	var name string
+	if pod.Name == "" {
+		name = pod.GenerateName
+	} else {
+		name = pod.Name
+	}
+
+	if bypassMe && pod.Namespace == "kube-system" && strings.HasPrefix(name, "image-registry-mutator-") {
 		// FIXME: hard-code
 		log.Printf("bypass myself kube-system/image-registry-mutator-*")
 		return
@@ -111,6 +118,11 @@ func mutateImageRegistry(req *v1beta1.AdmissionRequest) ([]patchOperation, error
 	pod := corev1.Pod{}
 	if _, _, err := universalDeserializer.Decode(raw, nil, &pod); err != nil {
 		return nil, fmt.Errorf("could not deserialize pod object: %v", err)
+	}
+
+	if pod.Namespace == "" {
+		pod.Namespace = req.Namespace
+		log.Printf("populate pod's namespace with admission request's namespace %s", req.Namespace)
 	}
 
 	if !needMutating(&pod) {
