@@ -125,8 +125,14 @@ func mutateImageRegistry(req *v1beta1.AdmissionRequest) ([]patchOperation, error
 		log.Printf("populate pod's namespace with admission request's namespace %s", req.Namespace)
 	}
 
+	var name string
+	if pod.Name == "" {
+		name = pod.GenerateName
+	} else {
+		name = pod.Name
+	}
 	if !needMutating(&pod) {
-		log.Printf("pod %s/%s do not need mutating", pod.Namespace, pod.Name)
+		log.Printf("pod %s/%s do not need mutating", pod.Namespace, name)
 		return nil, nil
 	}
 
