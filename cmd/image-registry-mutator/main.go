@@ -43,9 +43,9 @@ const (
 var (
 	podResource = metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
 
-	bypassNS map[string]string = map[string]string {}
-	bypassMe bool = false
-	registry string = ""				// not end with '/'
+	bypassNS = map[string]string {}
+	bypassMe = false
+	registry = ""				// not end with '/'
 )
 
 func needMutating(pod *corev1.Pod) (ret bool) {
